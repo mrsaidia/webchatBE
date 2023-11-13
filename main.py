@@ -9,6 +9,7 @@ app = FastAPI()
 app.include_router(register.router, prefix="/auth", tags=["auth"])
 app.include_router(login.router, prefix="/auth", tags=["auth"])
 
+
 if __name__ == "__main__":
     import uvicorn
 
