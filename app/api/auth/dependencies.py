@@ -1,5 +1,3 @@
-# app/api/auth/dependencies.py
-
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from .accesstoken import verify_access_token  # Đảm bảo đường dẫn import chính xác

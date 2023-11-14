@@ -5,7 +5,7 @@ import jwt
 secret_key = "drive_sync_secret_key"
 
 # time deadline for access token (minutes)
-ACCESS_TOKEN_EXPIRE_MINUTES = 0.3
+ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
 
 def create_access_token(username: str):
