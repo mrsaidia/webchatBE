@@ -10,11 +10,14 @@ import hashlib
 router = APIRouter()
 
 # Define the MongoDB collection
+
+
 user_collection = database.get_collection("users")
 
 
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
+
 
 @router.post("/register")
 async def register(user: UserCreate):
@@ -27,6 +30,10 @@ async def register(user: UserCreate):
         "username": user.username,
         "password": hashed_password,
     }
+
+    # Check if the username already exists
+    if await user_collection.find_one({"username": user.username}):
+        raise HTTPException(status_code=400, detail="Username already exists")
 
     # Insert the user document into the MongoDB collection
     result = await user_collection.insert_one(user_document)

@@ -8,10 +8,11 @@ DATABASE_URL = "mongodb://localhost:27017"
 client = AsyncIOMotorClient(DATABASE_URL)
 
 # Define the MongoDB database
-database = client.drive_sync
+database = client.webchat
 
 # Optional: If you want to use a specific collection
 # Example: user_collection = database.get_collection("users")
+
 
 # If you need to close the database connection when the application shuts down
 async def close_db_connection():

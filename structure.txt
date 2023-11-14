@@ -1,0 +1,28 @@
+.
+├── README.md
+├── __pycache__
+│   └── main.cpython-310.pyc
+├── app
+│   ├── api
+│   │   ├── auth
+│   │   │   ├── __pycache__
+│   │   │   │   ├── login.cpython-310.pyc
+│   │   │   │   ├── models.cpython-310.pyc
+│   │   │   │   └── register.cpython-310.pyc
+│   │   │   ├── accesstoken.py
+│   │   │   ├── config.py
+│   │   │   ├── login.py
+│   │   │   ├── models.py
+│   │   │   └── register.py
+│   │   └── items
+│   ├── chat
+│   │   ├── chat.py
+│   │   └── models.py
+│   └── core
+│       ├── __pycache__
+│       │   ├── config.cpython-310.pyc
+│       │   └── database.cpython-310.pyc
+│       ├── config.py
+│       └── database.py
+├── main.py
+└── structure.txt

@@ -3,7 +3,7 @@
 from fastapi import APIRouter, HTTPException
 from motor.motor_asyncio import AsyncIOMotorClient
 from app.core.database import database
-from app.api.auth.models import UserLogin
+from app.api.auth.models import UserLogin, User
 from app.api.auth.accesstoken import create_access_token
 
 from app.api.auth.accesstoken import verify_access_token
@@ -40,12 +40,12 @@ async def login(user: UserLogin):
         raise HTTPException(status_code=400, detail="Incorrect username or password")
     # return message susscess and access_token
     access_token = create_access_token(user.username)
-    return {"message": "Login success", "access_token": access_token}
+    # return access_token and user_id
+    return {"access_token": access_token, "user_id": user.username}
 
 
 @router.get("/verify")
-async def verify(token: str):
-    print("Verifying...")
-    if not verify_access_token(token):
+async def verify(user: User):
+    if not verify_access_token(user.access_token):
         raise HTTPException(status_code=400, detail="Token is invalid")
     return {"message": "Token is valid"}

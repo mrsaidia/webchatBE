@@ -1,12 +1,15 @@
 from datetime import datetime, timedelta
-
 import jwt
 
+#
 secret_key = "drive_sync_secret_key"
+
+# time deadline for access token (minutes)
+ACCESS_TOKEN_EXPIRE_MINUTES = 0.3
 
 
 def create_access_token(username: str):
-    expire = datetime.utcnow()
+    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode = {"sub": username, "exp": expire}
     encoded_jwt = jwt.encode(to_encode, secret_key, algorithm="HS256")
     return encoded_jwt
@@ -14,11 +17,7 @@ def create_access_token(username: str):
 
 def verify_access_token(token: str):
     try:
-        payload = jwt.decode(token, secret_key, algorithms=["HS256"])
-        username = payload.get("sub")
-        if username is None:
-            return False
-        # Thêm bất kỳ kiểm tra bổ sung nào ở đây (nếu cần)
-        return True
-    except PyJWTError:
+        decoded_jwt = jwt.decode(token, secret_key, algorithms=["HS256"])
+        return decoded_jwt
+    except:
         return False
