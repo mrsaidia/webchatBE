@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
+from fastapi import UploadFile, File
 
 
 class MessageModel(BaseModel):
@@ -43,3 +44,20 @@ class conversation(BaseModel):
                 "receiver": "bob",
             }
         }
+
+
+class sendImage(BaseModel):
+    receiver: str
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "image": "image.png",
+                "receiver": "bob",
+            }
+        }
+
+
+class ImageData(BaseModel):
+    sender: str
+    receiver: str
