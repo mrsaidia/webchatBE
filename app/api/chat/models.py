@@ -21,6 +21,7 @@ class MessageModel(BaseModel):
 
 class MessageInDB(MessageModel):
     timestamp: datetime
+    format: str
 
     class Config:
         schema_extra = {
@@ -29,6 +30,7 @@ class MessageInDB(MessageModel):
                 "sender": "alice",
                 "receiver": "bob",
                 "timestamp": "2021-07-15T10:00:00.000Z",
+                "format": "text",
             }
         }
 
