@@ -8,6 +8,7 @@ import random
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from app.api.auth.models import PasswordResetRequest, PasswordResetModel
 
 router = APIRouter()
 user_collection = database.get_collection("users")
@@ -44,11 +45,25 @@ def send_verification_email(email: str, code: str):
     send_email(sender_email, sender_password, receiver_email, subject, message)
 
 
+async def check_account(email):
+    user = await user_collection.find_one({"email": email})
+    if user:
+        # Check if the 'password' key exists in the 'user' dictionary
+        if "password" in user:
+            return True
+        else:
+            return False
+    else:
+        return False
+
+
 @router.post("/request-verification")
 async def request_verification(email_request: EmailRequest):
+    # Kiểm tra tài khoản đã được đăng ký chưa
+    if await check_account(email_request.email):
+        raise HTTPException(status_code=400, detail="Email has been registered")
     # Tạo mã xác nhận
     verification_code = str(random.randint(100000, 999999))
-
     # Lưu mã xác nhận và email vào cơ sở dữ liệu tạm thời
     temp_data = {
         "email": email_request.email,
@@ -92,3 +107,44 @@ async def register(registration_request: RegistrationRequest):
     await user_collection.delete_one({"email": registration_request.email})
 
     return {"user_id": str(result.inserted_id), "email": registration_request.email}
+
+
+@router.post("/request-password-reset")
+async def request_password_reset(request: PasswordResetRequest):
+    user = await user_collection.find_one({"email": request.email})
+    if not user:
+        raise HTTPException(
+            status_code=404, detail="User with this email does not exist"
+        )
+
+    # Tạo mã xác nhận
+    verification_code = str(random.randint(100000, 999999))
+    # Lưu mã xác nhận vào cơ sở dữ liệu
+    await user_collection.update_one(
+        {"email": request.email}, {"$set": {"reset_code": verification_code}}
+    )
+
+    # Gửi email với mã xác nhận
+    send_verification_email(request.email, verification_code)
+
+    return {"message": "Password reset email sent"}
+
+
+@router.post("/reset-password")
+async def reset_password(reset_request: PasswordResetModel):
+    # Kiểm tra mã xác nhận
+    user = await user_collection.find_one(
+        {"email": reset_request.email, "reset_code": reset_request.verification_code}
+    )
+    if not user:
+        raise HTTPException(
+            status_code=400, detail="Invalid email or verification code"
+        )
+
+    # Băm mật khẩu mới và cập nhật vào cơ sở dữ liệu
+    hashed_password = hash_password(reset_request.new_password)
+    await user_collection.update_one(
+        {"email": reset_request.email}, {"$set": {"password": hashed_password}}
+    )
+
+    return {"message": "Password has been reset successfully"}

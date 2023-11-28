@@ -8,19 +8,29 @@ class RegistrationRequest(BaseModel):
 
 
 class UserCreate(BaseModel):
-    username: str
+    email: str
     password: str
 
 
 class UserLogin(BaseModel):
-    username: str
+    email: str
     password: str
 
 
 class User(BaseModel):
-    username: str
+    email: str
     access_token: str
 
 
 class EmailRequest(BaseModel):
     email: str
+
+
+class PasswordResetRequest(BaseModel):
+    email: str
+
+
+class PasswordResetModel(BaseModel):
+    email: str
+    verification_code: str
+    new_password: str
