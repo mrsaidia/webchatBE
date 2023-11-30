@@ -1,14 +1,17 @@
 from app.api.auth.models import RegistrationRequest  # Mô hình mới cho yêu cầu đăng ký
 import hashlib
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from app.core.database import database
 from app.api.auth.models import EmailRequest  # Mô hình mới để xử lý yêu cầu email
 import random
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from app.api.auth.models import PasswordResetRequest, PasswordResetModel
+from app.api.auth.models import PasswordResetRequest, PasswordResetModel, UserInfo
+from app.api.auth.accesstoken import create_access_token
+from app.api.auth.accesstoken import verify_access_token
+from app.api.auth.dependencies import get_current_user
 
 router = APIRouter()
 user_collection = database.get_collection("users")
@@ -140,6 +143,11 @@ async def reset_password(reset_request: PasswordResetModel):
         raise HTTPException(
             status_code=400, detail="Invalid email or verification code"
         )
+    else:
+        # Xóa mã xác nhận trong cơ sở dữ liệu
+        await user_collection.update_one(
+            {"email": reset_request.email}, {"$unset": {"reset_code": ""}}
+        )
 
     # Băm mật khẩu mới và cập nhật vào cơ sở dữ liệu
     hashed_password = hash_password(reset_request.new_password)
@@ -148,3 +156,24 @@ async def reset_password(reset_request: PasswordResetModel):
     )
 
     return {"message": "Password has been reset successfully"}
+
+
+# đặt tên cho user
+@router.post("/set-info")
+async def set_info(info: UserInfo, current_user_id: str = Depends(get_current_user)):
+    # check if user is logged in
+    if not current_user_id:
+        raise HTTPException(status_code=401, detail="Not logged in")
+
+    # check if user is existed
+    user = await user_collection.find_one({"user_id": current_user_id["user_id"]})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # update info
+    await user_collection.update_one(
+        {"user_id": current_user_id["user_id"]},
+        {"$set": {"name": info.name, "phone": info.phone}},
+    )
+
+    return {"message": "Set info successfully"}

@@ -162,7 +162,7 @@ async def send_message(
             detail="You are not authorized to send messages on behalf of another user.",
         )
     # check if receiver is in database
-    if not await database.users.find_one({"username": message.receiver}):
+    if not await database.users.find_one({"_id": message.receiver}):
         raise HTTPException(
             status_code=400,
             detail="Receiver is not in database.",

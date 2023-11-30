@@ -6,8 +6,8 @@ from fastapi import UploadFile, File
 
 class MessageModel(BaseModel):
     content: str
-    sender: str  # Username của người gửi
-    receiver: str  # Username của người nhận
+    sender: str  # _id của người gửi
+    receiver: str  # _id của người nhận
 
     class Config:
         schema_extra = {
