@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Form
+from fastapi import APIRouter, Depends, HTTPException, Form, WebSocketDisconnect
 from app.core.database import database
 from .models import MessageModel, ImageData, MessageInDB, conversation, RoomModel
 from app.api.auth.dependencies import get_current_user
@@ -13,11 +13,38 @@ from bson import ObjectId
 from typing import List
 import base64
 from .saveDB import save_image_to_db, save_video_to_db, save_audio_to_db
+from fastapi import APIRouter, WebSocket
+
+from collections import defaultdict
+from typing import Dict
+
 
 router = APIRouter()
 
 messages_collection = database.get_collection("messages")
 UPLOAD_DIRECTORY = "./data/"
+
+
+active_websockets: Dict[str, List[WebSocket]] = defaultdict(list)
+
+
+async def notify_new_message(room_id: str, message: dict):
+    if room_id in active_websockets:
+        websockets = active_websockets[room_id]
+        for websocket in websockets:
+            await websocket.send_json(message)
+
+
+@router.websocket("/ws/{room_id}")
+async def websocket_endpoint(websocket: WebSocket, room_id: str):
+    await websocket.accept()
+    active_websockets[room_id].append(websocket)
+    try:
+        while True:
+            # Đợi tin nhắn từ client (nếu cần)
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        active_websockets[room_id].remove(websocket)
 
 
 @router.post("/create-room", response_model=RoomModel)
@@ -139,6 +166,9 @@ async def send_message(
     created_message = await messages_collection.find_one(
         {"_id": new_message.inserted_id}
     )
+
+    # Gửi tin nhắn tới các thành viên khác trong phòng
+    await notify_new_message(room_id, created_message)
 
     return MessageModel(**created_message)
 
