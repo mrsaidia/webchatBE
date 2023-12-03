@@ -8,16 +8,15 @@ from datetime import datetime
 
 
 class MessageModel(BaseModel):
+    room_id: str
     content: str
-    sender: str  # _id của người gửi
-    receiver: str  # _id của người nhận
+    format: str
 
     class Config:
         schema_extra = {
             "example": {
                 "content": "Hello, there!",
-                "sender": "alice",
-                "receiver": "bob",
+                "format": "text",
             }
         }
 
