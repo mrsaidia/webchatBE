@@ -1,7 +1,10 @@
-from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 from fastapi import UploadFile, File
+from pydantic import BaseModel, Field
+from typing import List
+from bson import ObjectId
+from datetime import datetime
 
 
 class MessageModel(BaseModel):
@@ -63,3 +66,14 @@ class sendImage(BaseModel):
 class ImageData(BaseModel):
     sender: str
     receiver: str
+
+
+class RoomModel(BaseModel):
+    id: str = Field(default_factory=lambda: str(ObjectId()))
+    members: List[str]
+    is_group: bool = Field(default=False)  # Thêm trường này
+    created_at: datetime = Field(default_factory=datetime.now)
+
+
+class RoomInDB(RoomModel):
+    pass

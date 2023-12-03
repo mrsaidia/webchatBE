@@ -1,7 +1,6 @@
 from app.api.auth.models import RegistrationRequest  # Mô hình mới cho yêu cầu đăng ký
 import hashlib
-
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
 from app.core.database import database
 from app.api.auth.models import EmailRequest  # Mô hình mới để xử lý yêu cầu email
 import random
@@ -12,6 +11,7 @@ from app.api.auth.models import PasswordResetRequest, PasswordResetModel, UserIn
 from app.api.auth.accesstoken import create_access_token
 from app.api.auth.accesstoken import verify_access_token
 from app.api.auth.dependencies import get_current_user
+from bson import ObjectId
 
 router = APIRouter()
 user_collection = database.get_collection("users")
@@ -166,14 +166,41 @@ async def set_info(info: UserInfo, current_user_id: str = Depends(get_current_us
         raise HTTPException(status_code=401, detail="Not logged in")
 
     # check if user is existed
-    user = await user_collection.find_one({"user_id": current_user_id["user_id"]})
+    user_id = ObjectId(current_user_id["user_id"])
+    user = await user_collection.find_one({"_id": user_id})
+
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
     # update info
     await user_collection.update_one(
-        {"user_id": current_user_id["user_id"]},
-        {"$set": {"name": info.name, "phone": info.phone}},
+        {"_id": user_id},
+        {"$set": {"email": info.email, "name": info.name, "phone": info.phone}},
     )
 
     return {"message": "Set info successfully"}
+
+
+# set avatar, and save in database mongodb
+@router.post("/set-avatar")
+async def set_avatar(
+    image: UploadFile = File(...), current_user_id: str = Depends(get_current_user)
+):
+    # check if user is logged in
+    if not current_user_id:
+        raise HTTPException(status_code=401, detail="Not logged in")
+
+    # check if user is existed
+    user_id = ObjectId(current_user_id["user_id"])
+    user = await user_collection.find_one({"_id": user_id})
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # save image to mongodb
+    await user_collection.update_one(
+        {"_id": user_id},
+        {"$set": {"avatar": image.file.read()}},
+    )
+
+    return {"message": "Set avatar successfully"}
