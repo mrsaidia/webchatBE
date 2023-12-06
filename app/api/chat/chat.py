@@ -9,12 +9,12 @@ from PIL import Image
 import io
 import os
 import uuid
-from bson import ObjectId
+from bson import ObjectId, json_util
 from typing import List
 import base64
 from .saveDB import save_image_to_db, save_video_to_db, save_audio_to_db
 from fastapi import APIRouter, WebSocket
-
+import json
 from collections import defaultdict
 from typing import Dict
 
@@ -27,24 +27,36 @@ UPLOAD_DIRECTORY = "./data/"
 
 active_websockets: Dict[str, List[WebSocket]] = defaultdict(list)
 
+# Một dict để theo dõi các phòng mà mỗi người dùng tham gia
+user_rooms: Dict[str, List[str]] = defaultdict(list)
 
-async def notify_new_message(room_id: str, message: dict):
-    if room_id in active_websockets:
-        websockets = active_websockets[room_id]
-        for websocket in websockets:
-            await websocket.send_json(message)
+# Một dict để theo dõi các WebSocket kết nối của mỗi người dùng
+user_websockets: Dict[str, List[WebSocket]] = defaultdict(list)
 
 
-@router.websocket("/ws/{room_id}")
-async def websocket_endpoint(websocket: WebSocket, room_id: str):
+async def notify_new_message(user_id: str, message: dict):
+    rooms = user_rooms.get(user_id, [])
+    for room_id in rooms:
+        if room_id in active_websockets:
+            websockets = active_websockets[room_id]
+            for websocket in websockets:
+                await websocket.send_json(message)
+
+
+@router.websocket("/ws/{user_id}")
+async def websocket_endpoint(websocket: WebSocket, user_id: str):
     await websocket.accept()
-    active_websockets[room_id].append(websocket)
+    user_websockets[user_id].append(websocket)
     try:
         while True:
-            # Đợi tin nhắn từ client (nếu cần)
-            await websocket.receive_text()
+            # Cập nhật phòng mà người dùng tham gia
+            room_id = await websocket.receive_text()
+            if room_id not in user_rooms[user_id]:
+                user_rooms[user_id].append(room_id)
     except WebSocketDisconnect:
-        active_websockets[room_id].remove(websocket)
+        # Xử lý khi ngắt kết nối
+        user_websockets[user_id].remove(websocket)
+        # Tùy chọn: Xóa user_id khỏi user_rooms nếu không còn WebSocket nào
 
 
 @router.post("/create-room", response_model=RoomModel)
@@ -85,7 +97,7 @@ async def get_messages(
     limit: int = 10,  # Giới hạn số lượng tin nhắn trả về
     current_user: str = Depends(get_current_user),
 ):
-    # Lấy thông tin phòng từ cơ sở dữ liệu
+    # Lấy thông tin phòng từ cơ sở dữ liệu``
     room = await database.rooms.find_one({"_id": ObjectId(room_id)})
     if not room:
         raise HTTPException(
@@ -167,8 +179,12 @@ async def send_message(
         {"_id": new_message.inserted_id}
     )
 
+    print("check created_message", created_message)
     # Gửi tin nhắn tới các thành viên khác trong phòng
-    await notify_new_message(room_id, created_message)
+    created_message_dict = json.loads(json_util.dumps(created_message))
+    # Gọi notify_new_message cho mỗi người dùng trong phòng
+    for user_id in room["members"]:
+        await notify_new_message(user_id, created_message_dict)
 
     return MessageModel(**created_message)
 
