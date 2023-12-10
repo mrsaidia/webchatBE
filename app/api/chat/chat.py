@@ -21,15 +21,13 @@ from app.api.auth.accesstoken import verify_access_token
 from fastapi.security import OAuth2PasswordBearer
 import uuid
 
-
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
 
 router = APIRouter()
 
 messages_collection = database.get_collection("messages")
-UPLOAD_DIRECTORY = "./data/chatFiles/"
 
+UPLOAD_DIRECTORY = "./data/chatFiles/"
 
 # Một dict để theo dõi các WebSocket kết nối của mỗi người dùng
 user_websockets: Dict[str, List[WebSocket]] = defaultdict(list)

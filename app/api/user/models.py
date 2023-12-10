@@ -11,3 +11,8 @@ class FriendRequestModel(BaseModel):
 class FriendListModel(BaseModel):
     user_id: str
     friend_ids: List[str]
+
+
+class AcceptFriendRequestModel(BaseModel):
+    sender_id: str
+    receiver_id: str
