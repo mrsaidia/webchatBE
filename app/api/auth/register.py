@@ -1,6 +1,7 @@
 from app.api.auth.models import RegistrationRequest  # Mô hình mới cho yêu cầu đăng ký
 import hashlib
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
+from fastapi.responses import FileResponse
 from app.core.database import database
 from app.api.auth.models import EmailRequest  # Mô hình mới để xử lý yêu cầu email
 import random
@@ -12,9 +13,14 @@ from app.api.auth.accesstoken import create_access_token
 from app.api.auth.accesstoken import verify_access_token
 from app.api.auth.dependencies import get_current_user
 from bson import ObjectId
+import os
+import uuid
+
 
 router = APIRouter()
 user_collection = database.get_collection("users")
+
+UPLOAD_DIRECTORY = "./data/avatars/"
 
 
 sender_email = "huy8bit@gmail.com"
@@ -181,11 +187,62 @@ async def set_info(info: UserInfo, current_user_id: str = Depends(get_current_us
     return {"message": "Set info successfully"}
 
 
-# set avatar, and save in database mongodb
+# # set avatar, and save in database mongodb
+# @router.post("/set-avatar")
+# async def set_avatar(
+#     image: UploadFile = File(...), current_user_id: str = Depends(get_current_user)
+# ):
+#     # check if user is logged in
+#     if not current_user_id:
+#         raise HTTPException(status_code=401, detail="Not logged in")
+
+#     # check if user is existed
+#     user_id = ObjectId(current_user_id["user_id"])
+#     user = await user_collection.find_one({"_id": user_id})
+
+#     if not user:
+#         raise HTTPException(status_code=404, detail="User not found")
+
+#     # save image to mongodb
+#     await user_collection.update_one(
+#         {"_id": user_id},
+#         {"$set": {"avatar": image.file.read()}},
+#     )
+
+#     return {"message": "Set avatar successfully"}
+
+
 @router.post("/set-avatar")
 async def set_avatar(
     image: UploadFile = File(...), current_user_id: str = Depends(get_current_user)
 ):
+    if not current_user_id:
+        raise HTTPException(status_code=401, detail="Not logged in")
+
+    user_id = ObjectId(current_user_id["user_id"])
+    user = await user_collection.find_one({"_id": user_id})
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Tạo tên file duy nhất và lưu file
+    filename = f"{uuid.uuid4()}{os.path.splitext(image.filename)[1]}"
+
+    file_path = os.path.join(UPLOAD_DIRECTORY, filename)
+    with open(file_path, "wb") as file_out:
+        file_out.write(await image.read())
+
+    # Lưu đường dẫn vào cơ sở dữ liệu
+    await user_collection.update_one(
+        {"_id": user_id},
+        {"$set": {"avatar": file_path}},
+    )
+
+    return {"message": "Set avatar successfully"}
+
+
+@router.get("/get-info")
+async def get_info(current_user_id: str = Depends(get_current_user)):
     # check if user is logged in
     if not current_user_id:
         raise HTTPException(status_code=401, detail="Not logged in")
@@ -197,10 +254,42 @@ async def set_avatar(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # save image to mongodb
-    await user_collection.update_one(
-        {"_id": user_id},
-        {"$set": {"avatar": image.file.read()}},
-    )
+    return {
+        "email": user["email"],
+        "name": user["name"],
+        "phone": user["phone"],
+        "avatar": user["avatar"],
+    }
 
-    return {"message": "Set avatar successfully"}
+
+# @router.get("/get-avatar")
+# async def get_avatar(current_user_id: str = Depends(get_current_user)):
+#     # check if user is logged in
+#     if not current_user_id:
+#         raise HTTPException(status_code=401, detail="Not logged in")
+
+#     # check if user is existed
+#     user_id = ObjectId(current_user_id["user_id"])
+#     user = await user_collection.find_one({"_id": user_id})
+
+#     if not user:
+#         raise HTTPException(status_code=404, detail="User not found")
+
+#     return {
+#         "avatar": user["avatar"],
+#     }
+
+
+@router.get("/get-avatar")
+async def get_avatar(current_user_id: str = Depends(get_current_user)):
+    if not current_user_id:
+        raise HTTPException(status_code=401, detail="Not logged in")
+
+    user_id = ObjectId(current_user_id["user_id"])
+    user = await user_collection.find_one({"_id": user_id})
+
+    if not user or "avatar" not in user:
+        raise HTTPException(status_code=404, detail="User or avatar not found")
+
+    avatar_path = user["avatar"]
+    return FileResponse(avatar_path)

@@ -19,6 +19,7 @@ from collections import defaultdict
 from typing import Dict
 from app.api.auth.accesstoken import verify_access_token
 from fastapi.security import OAuth2PasswordBearer
+import uuid
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -27,7 +28,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 router = APIRouter()
 
 messages_collection = database.get_collection("messages")
-UPLOAD_DIRECTORY = "./data/"
+UPLOAD_DIRECTORY = "./data/chatFiles/"
 
 
 # Một dict để theo dõi các WebSocket kết nối của mỗi người dùng
@@ -201,6 +202,10 @@ async def send_image(
     image_data = await image.read()
     image_data_base64 = base64.b64encode(image_data)
 
+    # Tạo tên file mới ngẫu nhiên
+    file_extension = os.path.splitext(image.filename)[1]  # Lấy phần mở rộng file
+    random_filename = f"{uuid.uuid4()}{file_extension}"  # Tạo tên file ngẫu nhiên
+
     # Lấy thông tin phòng từ cơ sở dữ liệu
     room = await database.rooms.find_one({"_id": ObjectId(room_id)})
     if not room:
@@ -220,11 +225,11 @@ async def send_image(
     folderPath = os.path.join(UPLOAD_DIRECTORY, room_id)
 
     # Lưu ảnh vào thư mục dựa trên room_id
-    save_image_to_db(image_data_base64, folderPath, image.filename)
+    save_image_to_db(image_data_base64, folderPath, random_filename)
 
     # Tạo và lưu tin nhắn với ảnh
     message_dict = {
-        "content": image.filename,
+        "content": random_filename,
         "sender": current_user["user_id"],  # Sử dụng người dùng hiện tại làm người gửi
         "room_id": room_id,  # Sử dụng room_id
         "timestamp": datetime.now(),
@@ -235,9 +240,10 @@ async def send_image(
     created_message = await messages_collection.find_one(
         {"_id": new_message.inserted_id}
     )
-
-    # Gửi tin nhắn tới các thành viên khác trong phòng
+    # add field image_data
+    created_message["content_file"] = image_data_base64
     created_message_dict = json.loads(json_util.dumps(created_message))
+
     # Gọi notify_new_message cho mỗi người dùng trong phòng
     await notify_new_message(created_message_dict, room_id)
 
@@ -250,9 +256,11 @@ async def send_audio(
     audio: UploadFile = File(...),
     current_user: str = Depends(get_current_user),
 ):
-    print("check here")
-
     audio_data = await audio.read()
+
+    # Tạo tên file mới ngẫu nhiên
+    file_extension = os.path.splitext(audio.filename)[1]  # Lấy phần mở rộng file
+    random_filename = f"{uuid.uuid4()}{file_extension}"  # Tạo tên file ngẫu nhiên
 
     # Lấy thông tin phòng từ cơ sở dữ liệu
     room = await database.rooms.find_one({"_id": ObjectId(room_id)})
@@ -273,11 +281,11 @@ async def send_audio(
     folderPath = os.path.join(UPLOAD_DIRECTORY, room_id)
 
     # Lưu âm thanh vào thư mục dựa trên room_id
-    save_audio_to_db(audio_data, folderPath, audio.filename)
+    save_audio_to_db(audio_data, folderPath, random_filename)
 
     # Tạo và lưu tin nhắn với âm thanh
     message_dict = {
-        "content": audio.filename,
+        "content": random_filename,
         "sender": current_user["user_id"],  # Sử dụng người dùng hiện tại làm người gửi
         "room_id": room_id,  # Sử dụng room_id
         "timestamp": datetime.now(),
@@ -289,6 +297,12 @@ async def send_audio(
         {"_id": new_message.inserted_id}
     )
 
+    created_message["content_file"] = audio_data
+    created_message_dict = json.loads(json_util.dumps(created_message))
+
+    # Gọi notify_new_message cho mỗi người dùng trong phòng
+    await notify_new_message(created_message_dict, room_id)
+
     return MessageModel(**created_message)
 
 
@@ -299,6 +313,10 @@ async def send_video(
     current_user: str = Depends(get_current_user),
 ):
     video_data = await video.read()
+
+    # Tạo tên file mới ngẫu nhiên
+    file_extension = os.path.splitext(video.filename)[1]  # Lấy phần mở rộng file
+    random_filename = f"{uuid.uuid4()}{file_extension}"  # Tạo tên file ngẫu nhiên
 
     # Lấy thông tin phòng từ cơ sở dữ liệu
     room = await database.rooms.find_one({"_id": ObjectId(room_id)})
@@ -319,11 +337,11 @@ async def send_video(
     folderPath = os.path.join(UPLOAD_DIRECTORY, room_id)
 
     # Lưu video vào thư mục dựa trên room_id
-    save_video_to_db(video_data, folderPath, video.filename)
+    save_video_to_db(video_data, folderPath, random_filename)
 
     # Tạo và lưu tin nhắn với video
     message_dict = {
-        "content": video.filename,
+        "content": random_filename,
         "sender": current_user["user_id"],  # Sử dụng người dùng hiện tại làm người gửi
         "room_id": room_id,  # Sử dụng room_id
         "timestamp": datetime.now(),
@@ -334,5 +352,11 @@ async def send_video(
     created_message = await messages_collection.find_one(
         {"_id": new_message.inserted_id}
     )
+
+    created_message["content_file"] = video_data
+    created_message_dict = json.loads(json_util.dumps(created_message))
+
+    # Gọi notify_new_message cho mỗi người dùng trong phòng
+    await notify_new_message(created_message_dict, room_id)
 
     return MessageModel(**created_message)
