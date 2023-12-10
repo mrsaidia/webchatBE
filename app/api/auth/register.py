@@ -187,31 +187,6 @@ async def set_info(info: UserInfo, current_user_id: str = Depends(get_current_us
     return {"message": "Set info successfully"}
 
 
-# # set avatar, and save in database mongodb
-# @router.post("/set-avatar")
-# async def set_avatar(
-#     image: UploadFile = File(...), current_user_id: str = Depends(get_current_user)
-# ):
-#     # check if user is logged in
-#     if not current_user_id:
-#         raise HTTPException(status_code=401, detail="Not logged in")
-
-#     # check if user is existed
-#     user_id = ObjectId(current_user_id["user_id"])
-#     user = await user_collection.find_one({"_id": user_id})
-
-#     if not user:
-#         raise HTTPException(status_code=404, detail="User not found")
-
-#     # save image to mongodb
-#     await user_collection.update_one(
-#         {"_id": user_id},
-#         {"$set": {"avatar": image.file.read()}},
-#     )
-
-#     return {"message": "Set avatar successfully"}
-
-
 @router.post("/set-avatar")
 async def set_avatar(
     image: UploadFile = File(...), current_user_id: str = Depends(get_current_user)
@@ -235,7 +210,7 @@ async def set_avatar(
     # Lưu đường dẫn vào cơ sở dữ liệu
     await user_collection.update_one(
         {"_id": user_id},
-        {"$set": {"avatar": file_path}},
+        {"$set": {"avatar": filename}},
     )
 
     return {"message": "Set avatar successfully"}
@@ -262,24 +237,6 @@ async def get_info(current_user_id: str = Depends(get_current_user)):
     }
 
 
-# @router.get("/get-avatar")
-# async def get_avatar(current_user_id: str = Depends(get_current_user)):
-#     # check if user is logged in
-#     if not current_user_id:
-#         raise HTTPException(status_code=401, detail="Not logged in")
-
-#     # check if user is existed
-#     user_id = ObjectId(current_user_id["user_id"])
-#     user = await user_collection.find_one({"_id": user_id})
-
-#     if not user:
-#         raise HTTPException(status_code=404, detail="User not found")
-
-#     return {
-#         "avatar": user["avatar"],
-#     }
-
-
 @router.get("/get-avatar")
 async def get_avatar(current_user_id: str = Depends(get_current_user)):
     if not current_user_id:
@@ -291,5 +248,5 @@ async def get_avatar(current_user_id: str = Depends(get_current_user)):
     if not user or "avatar" not in user:
         raise HTTPException(status_code=404, detail="User or avatar not found")
 
-    avatar_path = user["avatar"]
+    avatar_path = os.path.join(UPLOAD_DIRECTORY, user["avatar"])
     return FileResponse(avatar_path)

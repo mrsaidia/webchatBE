@@ -5,6 +5,7 @@ from app.api.auth.accesstoken import verify_access_token
 from app.api.auth.dependencies import get_current_user
 from app.api.user.models import FriendRequestModel
 from app.api.user.models import FriendListModel
+from typing import List
 
 router = APIRouter()
 
