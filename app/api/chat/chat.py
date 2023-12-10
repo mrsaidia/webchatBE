@@ -25,38 +25,40 @@ messages_collection = database.get_collection("messages")
 UPLOAD_DIRECTORY = "./data/"
 
 
-active_websockets: Dict[str, List[WebSocket]] = defaultdict(list)
-
-# Một dict để theo dõi các phòng mà mỗi người dùng tham gia
-user_rooms: Dict[str, List[str]] = defaultdict(list)
-
 # Một dict để theo dõi các WebSocket kết nối của mỗi người dùng
 user_websockets: Dict[str, List[WebSocket]] = defaultdict(list)
 
 
-async def notify_new_message(user_id: str, message: dict):
-    rooms = user_rooms.get(user_id, [])
-    for room_id in rooms:
-        if room_id in active_websockets:
-            websockets = active_websockets[room_id]
+async def notify_new_message(
+    message: dict,
+    room_id: str,
+):
+    # find list of user_id in room
+    room = await database.rooms.find_one({"_id": ObjectId(room_id)})
+    list_users = room["members"]
+
+    # send new message to all user in room
+    for user_id in list_users:
+        if user_id in user_websockets:
+            websockets = user_websockets[user_id]
             for websocket in websockets:
                 await websocket.send_json(message)
 
 
 @router.websocket("/ws/{user_id}")
-async def websocket_endpoint(websocket: WebSocket, user_id: str):
+async def websocket_endpoint(
+    websocket: WebSocket,
+    user_id: str,
+):
     await websocket.accept()
     user_websockets[user_id].append(websocket)
+    print(user_websockets)
     try:
         while True:
-            # Cập nhật phòng mà người dùng tham gia
-            room_id = await websocket.receive_text()
-            if room_id not in user_rooms[user_id]:
-                user_rooms[user_id].append(room_id)
+            # Đợi tin nhắn từ client (nếu cần)
+            await websocket.receive_text()
     except WebSocketDisconnect:
-        # Xử lý khi ngắt kết nối
         user_websockets[user_id].remove(websocket)
-        # Tùy chọn: Xóa user_id khỏi user_rooms nếu không còn WebSocket nào
 
 
 @router.post("/create-room", response_model=RoomModel)
@@ -147,7 +149,6 @@ async def send_message(
     sender: str = Depends(get_current_user),
 ):
     room_id = message.room_id
-    print("check room_id", room_id)
     message_dict = message.dict(by_alias=True)
 
     # Lấy thông tin phòng từ cơ sở dữ liệu
@@ -179,12 +180,10 @@ async def send_message(
         {"_id": new_message.inserted_id}
     )
 
-    print("check created_message", created_message)
     # Gửi tin nhắn tới các thành viên khác trong phòng
     created_message_dict = json.loads(json_util.dumps(created_message))
     # Gọi notify_new_message cho mỗi người dùng trong phòng
-    for user_id in room["members"]:
-        await notify_new_message(user_id, created_message_dict)
+    await notify_new_message(created_message_dict, room_id)
 
     return MessageModel(**created_message)
 
