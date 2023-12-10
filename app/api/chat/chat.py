@@ -131,15 +131,15 @@ async def get_messages(
             # Giả sử 'content' chứa tên file
             file_path = os.path.join(UPLOAD_DIRECTORY, room_id, message["content"])
             if message["format"] == "image":
-                with open(file_path + ".png", "rb") as f:
+                with open(file_path, "rb") as f:
                     image_data = f.read()
                     message["content"] = base64.b64encode(image_data)
             elif message["format"] == "audio":
-                with open(file_path + ".mp3", "rb") as f:
+                with open(file_path, "rb") as f:
                     audio_data = f.read()
                     message["content"] = base64.b64encode(audio_data)
             elif message["format"] == "video":
-                with open(file_path + ".mp4", "rb") as f:
+                with open(file_path, "rb") as f:
                     video_data = f.read()
                     message["content"] = base64.b64encode(video_data)
 

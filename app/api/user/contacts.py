@@ -9,11 +9,15 @@ from app.api.user.models import AcceptFriendRequestModel
 from app.api.user.models import RejectFriendRequestModel
 from typing import List
 from bson import ObjectId, json_util
+import os
+import base64
 
 router = APIRouter()
 
 # Định nghĩa MongoDB collection
 user_collection = database.get_collection("contacts")
+
+UPLOAD_DIRECTORY = "./data/avatars/"
 
 
 @router.post("/send-friend-request")
@@ -97,10 +101,11 @@ async def reject_friend_request(
 
 async def get_friends_list(user_id: str):
     friends_list = []
+
     # Lấy danh sách lời mời kết bạn
     friend_requests = await user_collection.find(
         {"sender_id": user_id, "status": "pending"}
-    ).to_list(length=1000)
+    ).to_list(length=10000)
 
     # Lấy danh sách bạn bè
     friends = await user_collection.find(
@@ -108,7 +113,106 @@ async def get_friends_list(user_id: str):
             "$or": [{"sender_id": user_id}, {"receiver_id": user_id}],
             "status": "accepted",
         }
-    ).to_list(length=1000)
+    ).to_list(length=10000)
+
+    # Kết hợp thông tin từ danh sách bạn bè
+    for friend in friends:
+        # Xác định ID của người bạn
+        friend_id = (
+            friend["receiver_id"]
+            if friend["sender_id"] == user_id
+            else friend["sender_id"]
+        )
+
+        # Truy vấn thông tin chi tiết từ cơ sở dữ liệu người dùng
+        friend_info = await database.users.find_one({"_id": ObjectId(friend_id)})
+
+        # check field avatar is exist
+        if "avatar" in friend_info:
+            avatar = friend_info["avatar"]
+            image_path = os.path.join(UPLOAD_DIRECTORY, avatar)
+            if os.path.exists(image_path):
+                imageFile = os.path.join(image_path)
+                # Mở và đọc file ảnh
+                with open(imageFile, "rb") as image:
+                    img = image.read()
+                    # Chuyển đổi ảnh sang base64
+                    conver_img = base64.b64encode(img).decode()
+                    friends_list.append(
+                        {
+                            "id": str(friend_info["_id"]),
+                            "name": friend_info.get("name"),
+                            "avatar": conver_img,
+                            "status": "accepted",
+                        }
+                    )
+            else:
+                friends_list.append(
+                    {
+                        "id": str(friend_info["_id"]),
+                        "name": friend_info.get("name"),
+                        "avatar": "",
+                        "status": "accepted",
+                    }
+                )
+        else:
+            friends_list.append(
+                {
+                    "id": str(friend_info["_id"]),
+                    "name": friend_info.get("name"),
+                    "avatar": "",
+                    "status": "accepted",
+                }
+            )
+
+    for friend in friend_requests:
+        # Xác định ID của người bạn
+        friend_id = (
+            friend["receiver_id"]
+            if friend["sender_id"] == user_id
+            else friend["sender_id"]
+        )
+
+        # Truy vấn thông tin chi tiết từ cơ sở dữ liệu người dùng
+        friend_info = await database.users.find_one({"_id": ObjectId(friend_id)})
+
+        # check field avatar is exist
+        if "avatar" in friend_info:
+            avatar = friend_info["avatar"]
+            image_path = os.path.join(UPLOAD_DIRECTORY, avatar)
+            if os.path.exists(image_path):
+                imageFile = os.path.join(image_path)
+                # Mở và đọc file ảnh
+                with open(imageFile, "rb") as image:
+                    img = image.read()
+                    # Chuyển đổi ảnh sang base64
+                    conver_img = base64.b64encode(img).decode()
+                    friends_list.append(
+                        {
+                            "id": str(friend_info["_id"]),
+                            "name": friend_info.get("name"),
+                            "avatar": conver_img,
+                            "status": "pending",
+                        }
+                    )
+            else:
+                friends_list.append(
+                    {
+                        "id": str(friend_info["_id"]),
+                        "name": friend_info.get("name"),
+                        "avatar": "",
+                        "status": "pending",
+                    }
+                )
+        else:
+            friends_list.append(
+                {
+                    "id": str(friend_info["_id"]),
+                    "name": friend_info.get("name"),
+                    "avatar": "",
+                    "status": "pending",
+                }
+            )
 
     return friends_list
 
@@ -116,12 +220,6 @@ async def get_friends_list(user_id: str):
 @router.get("/get-all-friends/{user_id}")
 async def get_all_friends(current_user_id: str = Depends(get_current_user)):
     user_id = current_user_id["user_id"]
-    # Lấy thông tin người dùng hiện tại
-    user = await database.users.find_one({"_id": ObjectId(current_user_id["user_id"])})
-
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    friends_list = await get_friends_list(current_user_id["user_id"])
+    friends_list = await get_friends_list(user_id)
 
     return friends_list
