@@ -17,6 +17,11 @@ from fastapi import APIRouter, WebSocket
 import json
 from collections import defaultdict
 from typing import Dict
+from app.api.auth.accesstoken import verify_access_token
+from fastapi.security import OAuth2PasswordBearer
+
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 
 router = APIRouter()
@@ -52,11 +57,10 @@ async def websocket_endpoint(
 ):
     await websocket.accept()
     user_websockets[user_id].append(websocket)
-    print(user_websockets)
     try:
         while True:
-            # Đợi tin nhắn từ client (nếu cần)
-            await websocket.receive_text()
+            data = await websocket.receive_text()
+            await websocket.send_text(f"Message text was: {data}")
     except WebSocketDisconnect:
         user_websockets[user_id].remove(websocket)
 
@@ -231,6 +235,11 @@ async def send_image(
     created_message = await messages_collection.find_one(
         {"_id": new_message.inserted_id}
     )
+
+    # Gửi tin nhắn tới các thành viên khác trong phòng
+    created_message_dict = json.loads(json_util.dumps(created_message))
+    # Gọi notify_new_message cho mỗi người dùng trong phòng
+    await notify_new_message(created_message_dict, room_id)
 
     return MessageModel(**created_message)
 
