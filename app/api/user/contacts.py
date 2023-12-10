@@ -6,6 +6,7 @@ from app.api.auth.dependencies import get_current_user
 from app.api.user.models import FriendRequestModel
 from app.api.user.models import FriendListModel
 from app.api.user.models import AcceptFriendRequestModel
+from app.api.user.models import RejectFriendRequestModel
 from typing import List
 from bson import ObjectId, json_util
 
@@ -19,7 +20,7 @@ user_collection = database.get_collection("contacts")
 async def send_friend_request(
     request: FriendRequestModel, current_user_id: str = Depends(get_current_user)
 ):
-    if request.receiver_id == current_user_id:
+    if request.receiver_id == current_user_id["user_id"]:
         raise HTTPException(
             status_code=400, detail="Cannot send friend request to yourself."
         )
@@ -27,7 +28,7 @@ async def send_friend_request(
     # Lưu lời mời kết bạn vào cơ sở dữ liệu
     existing_request = await user_collection.find_one(
         {
-            "sender_id": current_user_id,
+            "sender_id": current_user_id["user_id"],
             "receiver_id": request.receiver_id,
             "status": "pending",
         }
@@ -70,42 +71,57 @@ async def accept_friend_request(
     return {"message": "Friend request accepted."}
 
 
-@router.post("/reject-friend-request")
+@router.post("/reject-friend")
 async def reject_friend_request(
-    request: FriendRequestModel, current_user_id: str = Depends(get_current_user)
+    request: RejectFriendRequestModel, current_user_id: str = Depends(get_current_user)
 ):
+    # check current user is receiver
+    if (
+        request.receiver_id != current_user_id["user_id"]
+        and request.sender_id != current_user_id["user_id"]
+    ):
+        raise HTTPException(
+            status_code=400, detail="Cannot reject friend request sent to someone else."
+        )
+
     # Xóa lời mời kết bạn khỏi cơ sở dữ liệu
     await user_collection.delete_one(
         {"sender_id": request.sender_id, "receiver_id": request.receiver_id}
     )
+    await user_collection.delete_one(
+        {"sender_id": request.receiver_id, "receiver_id": request.sender_id}
+    )
 
     return {"message": "Friend request rejected."}
+
+
+async def get_friends_list(user_id: str):
+    friends_list = []
+    # Lấy danh sách lời mời kết bạn
+    friend_requests = await user_collection.find(
+        {"sender_id": user_id, "status": "pending"}
+    ).to_list(length=1000)
+
+    # Lấy danh sách bạn bè
+    friends = await user_collection.find(
+        {
+            "$or": [{"sender_id": user_id}, {"receiver_id": user_id}],
+            "status": "accepted",
+        }
+    ).to_list(length=1000)
+
+    return friends_list
 
 
 @router.get("/get-all-friends/{user_id}")
 async def get_all_friends(current_user_id: str = Depends(get_current_user)):
     user_id = current_user_id["user_id"]
     # Lấy thông tin người dùng hiện tại
-    user = await user_collection.find_one({"_id": ObjectId(user_id)})
+    user = await database.users.find_one({"_id": ObjectId(current_user_id["user_id"])})
+
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # Lấy danh sách ID bạn bè
-    friend_ids = user.get("friend_ids", [])
-
-    # Tạo một danh sách để chứa thông tin của bạn bè
-    friends_list = []
-
-    # Lấy thông tin chi tiết của từng bạn bè
-    for friend_id in friend_ids:
-        friend = await user_collection.find_one({"_id": ObjectId(friend_id)})
-        if friend:
-            friends_list.append(
-                {
-                    "user_id": str(friend["_id"]),
-                    "name": friend.get("name"),
-                    "avatar": friend.get("avatar"),
-                }
-            )
+    friends_list = await get_friends_list(current_user_id["user_id"])
 
     return friends_list
