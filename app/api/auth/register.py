@@ -23,8 +23,8 @@ user_collection = database.get_collection("users")
 UPLOAD_DIRECTORY = "./data/avatars/"
 
 
-sender_email = "huy8bit@gmail.com"
-sender_password = "tvyd ppnk lxhg saka"
+sender_email = "webchat6969@gmail.com"
+sender_password = "fxvn uepm wsqe pqmw"
 
 
 def send_email(sender_email, sender_password, receiver_email, subject, message):
@@ -45,8 +45,8 @@ def send_email(sender_email, sender_password, receiver_email, subject, message):
 
 
 def send_verification_email(email: str, code: str):
-    sender_email = "huy8bit@gmail.com"  # Địa chỉ email của bạn
-    sender_password = "tvyd ppnk lxhg saka"  # Mật khẩu email của bạn
+    sender_email = "webchat6969@gmail.com"  # Địa chỉ email của bạn
+    sender_password = "fxvn uepm wsqe pqmw"  # Mật khẩu email của bạn
     receiver_email = email  # Địa chỉ email của người nhận
     subject = "Webchat Verification Code"  # Chủ đề email
     message = f"Your verification code is {code}"  # Nội dung email
